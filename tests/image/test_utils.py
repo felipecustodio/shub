@@ -15,7 +15,6 @@ from shub.image.utils import (
     load_status_url,
     store_status_url,
     STATUS_FILE_LOCATION,
-    DEFAULT_DOCKER_API_VERSION,
 )
 
 from .utils import FakeProjectDirectory, add_sh_fake_config
@@ -34,7 +33,7 @@ class ReleaseUtilsTest(TestCase):
         sys.modules['docker'] = mocked_docker
         client_mock = mock.Mock()
 
-        class DockerClientMock(object):
+        class DockerClientMock:
 
             def __init__(self, *args, **kwargs):
                 client_mock(*args, **kwargs)
@@ -44,8 +43,7 @@ class ReleaseUtilsTest(TestCase):
 
         mocked_docker.APIClient = DockerClientMock
         assert get_docker_client()
-        client_mock.assert_called_with(
-            base_url=None, tls=None, version=DEFAULT_DOCKER_API_VERSION)
+        client_mock.assert_called_with(base_url=None, tls=None, version='auto')
         # set basic test environment
         os.environ['DOCKER_HOST'] = 'http://127.0.0.1'
         os.environ['DOCKER_API_VERSION'] = '1.40'
@@ -110,11 +108,15 @@ class ReleaseUtilsTest(TestCase):
 class StatusUrlsTest(TestCase):
 
     def setUp(self):
-        tmpdir = tempfile.gettempdir()
-        os.chdir(tmpdir)
-        self.status_file = os.path.join(tmpdir, STATUS_FILE_LOCATION)
+        self.curdir = os.getcwd()
+        self.tmp_dir = tempfile.gettempdir()
+        os.chdir(self.tmp_dir)
+        self.status_file = os.path.join(self.tmp_dir, STATUS_FILE_LOCATION)
         if os.path.exists(self.status_file):
             os.remove(self.status_file)
+
+    def tearDown(self):
+        os.chdir(self.curdir)
 
     def test_load_status_url(self):
         self.assertRaises(NotFoundException, load_status_url, 0)
@@ -133,17 +135,17 @@ class StatusUrlsTest(TestCase):
         # create and add first entry
         store_status_url('http://test0', 2)
         assert os.path.exists(self.status_file)
-        with open(self.status_file, 'r') as f:
+        with open(self.status_file) as f:
             assert f.read() == '0: http://test0\n'
         # add another one
         store_status_url('http://test1', 2)
-        with open(self.status_file, 'r') as f:
+        with open(self.status_file) as f:
             assert f.read() == '0: http://test0\n1: http://test1\n'
         # replacement
         assert store_status_url('http://test2', 2) == 2
-        with open(self.status_file, 'r') as f:
+        with open(self.status_file) as f:
             assert f.read() == '1: http://test1\n2: http://test2\n'
         # existing
         assert store_status_url('http://test1', 2) == 1
-        with open(self.status_file, 'r') as f:
+        with open(self.status_file) as f:
             assert f.read() == '1: http://test1\n2: http://test2\n'

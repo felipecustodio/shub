@@ -1,21 +1,11 @@
-from __future__ import absolute_import
-import io
-import os
 from setuptools import setup, find_packages
-
-
-about = {}
-here = os.path.abspath(os.path.dirname(__file__))
-with io.open(os.path.join(here, 'shub', '__init__.py'),
-             mode='r', encoding='utf-8') as f:
-    exec(f.read(), about)
 
 
 setup(
     name='shub',
-    version='2.14.5',
+    version='2.15.4',
     packages=find_packages(exclude=('tests', 'tests.*')),
-    url=about['DOCS_LINK'],
+    url="https://shub.readthedocs.io/en/stable/",
     description='Scrapinghub Command Line Client',
     long_description=open('README.rst').read(),
     author='Scrapinghub',
@@ -32,12 +22,14 @@ setup(
     install_requires=[
         'click',
         'docker',
+        'importlib-metadata; python_version < "3.10"',
+        'packaging',
         'pip',
         'PyYAML',
         'retrying',
         'requests',
         'scrapinghub>=2.3.1',
-        'six>=1.7.0',
+        'setuptools',
         'tqdm==4.55.1',
         'toml',
     ],
@@ -52,6 +44,8 @@ setup(
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         'Operating System :: OS Independent',
         'Environment :: Console',
         'Topic :: Internet :: WWW/HTTP',

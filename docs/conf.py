@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # shub.image documentation build configuration file, created by
 # sphinx-quickstart on Tue May  3 16:20:52 2016.
@@ -52,9 +51,9 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'shub'
-copyright = u'{}, Scrapinghub'.format(YEAR)
-author = u'Scrapinghub'
+project = 'shub'
+copyright = f'{YEAR}, Scrapinghub'
+author = 'Scrapinghub'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -70,7 +69,7 @@ release = __version__
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -114,7 +113,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'default'
+html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -228,8 +227,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  (master_doc, 'shub.tex', u'shub Documentation',
-   u'Scrapinghub', 'manual'),
+  (master_doc, 'shub.tex', 'shub Documentation',
+   'Scrapinghub', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -258,7 +257,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'shub', u'shub Documentation',
+    (master_doc, 'shub', 'shub Documentation',
      [author], 1)
 ]
 
@@ -272,7 +271,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  (master_doc, 'shub', u'shub Documentation',
+  (master_doc, 'shub', 'shub Documentation',
    author, 'shub', 'One line description of project.',
    'Miscellaneous'),
 ]
@@ -288,24 +287,3 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
-
-
-# Following is taken from https://github.com/snide/sphinx_rtd_theme#
-#   using-this-theme-locally-then-building-on-read-the-docs
-
-# on_rtd is whether we are on readthedocs.org,
-# this line of code grabbed from docs.readthedocs.org
-on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
-
-if not on_rtd:  # only import and set the theme if we're building docs locally
-    import sphinx_rtd_theme
-    html_theme = 'sphinx_rtd_theme'
-    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-
-# otherwise, readthedocs.org uses their theme by default, no need to specify it
-
-
-# Wrap text in tables
-# https://github.com/snide/sphinx_rtd_theme/issues/117#issuecomment-41571653
-def setup(app):
-    app.add_css_file("theme_overrides.css")

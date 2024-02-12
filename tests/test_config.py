@@ -1,13 +1,11 @@
-from __future__ import absolute_import
-
 import os
 import shutil
 import tempfile
 import textwrap
 import unittest
 from unittest import mock
+from io import StringIO
 
-import six
 import yaml
 from click.testing import CliRunner
 from yaml import CLoader as Loader
@@ -89,7 +87,7 @@ class ShubConfigTest(unittest.TestCase):
 
     def _get_conf_with_yml(self, yml):
         conf = ShubConfig()
-        conf.load(six.StringIO(textwrap.dedent(yml)))
+        conf.load(StringIO(textwrap.dedent(yml)))
         return conf
 
     def setUp(self):
@@ -126,7 +124,7 @@ class ShubConfigTest(unittest.TestCase):
         }
         self.assertEqual(projects, self.conf.projects)
         endpoints = {'external': 'ext_endpoint'}
-        self.assertDictContainsSubset(endpoints, self.conf.endpoints)
+        self.assertLessEqual(endpoints.items(), self.conf.endpoints.items())
         apikeys = {'default': 'key', 'otheruser': 'otherkey'}
         self.assertEqual(apikeys, self.conf.apikeys)
         stacks = {'dev': 'scrapy:v1.1'}
@@ -145,7 +143,7 @@ class ShubConfigTest(unittest.TestCase):
         """
         conf = self._get_conf_with_yml(yml)
         endpoints = {'external': 'ext_endpoint'}
-        self.assertDictContainsSubset(endpoints, conf.endpoints)
+        self.assertLessEqual(endpoints.items(), conf.endpoints.items())
         self.assertEqual(conf.projects, {})
         self.assertEqual(conf.apikeys, {})
         self.assertEqual(conf.images, {})
@@ -176,9 +174,9 @@ class ShubConfigTest(unittest.TestCase):
                 dev: dev_stack
             stack: prod_stack
         """
-        self.assertDictContainsSubset(
-            self._get_conf_with_yml(yml).stacks,
-            {'default': 'prod_stack', 'dev': 'dev_stack'},
+        self.assertLessEqual(
+            self._get_conf_with_yml(yml).stacks.items(),
+            {'default': 'prod_stack', 'dev': 'dev_stack'}.items()
         )
 
     def test_load_shortcut_conflict(self):
@@ -367,7 +365,7 @@ class ShubConfigTest(unittest.TestCase):
                     default: 123
                 """)
             conf.save('conf.yml')
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(yaml.load(f, Loader=Loader), {'project': 123})
 
             conf = self._get_conf_with_yml("""
@@ -377,7 +375,7 @@ class ShubConfigTest(unittest.TestCase):
                     file: reqs.txt
                 """)
             conf.save('conf.yml')
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(yaml.load(f, Loader=Loader), {
                     'project': 123,
                     'requirements': {'file': 'reqs.txt'}}
@@ -387,7 +385,7 @@ class ShubConfigTest(unittest.TestCase):
         conf = ShubConfig()
         with CliRunner().isolated_filesystem():
             conf.save('conf.yml')
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(yaml.load(f, Loader=Loader), None)
 
     def test_save_shortcut(self):
@@ -405,7 +403,7 @@ class ShubConfigTest(unittest.TestCase):
         }
         with CliRunner().isolated_filesystem():
             conf.save('conf.yml')
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(yaml.load(f, Loader=Loader), expected_yml_dict)
 
     def test_save_shortcut_updated(self):
@@ -423,7 +421,7 @@ class ShubConfigTest(unittest.TestCase):
             del conf.projects['prod']
             print(conf.projects)
             conf.save('scrapinghub.yml')
-            with open('scrapinghub.yml', 'r') as f:
+            with open('scrapinghub.yml') as f:
                 new_yml = yaml.safe_load(f)
             # Should not contain 'projects'
             self.assertEqual(new_yml, {'project': 12345})
@@ -433,7 +431,7 @@ class ShubConfigTest(unittest.TestCase):
             # Should also work in reverse
             conf.projects['prod'] = 33333
             conf.save('scrapinghub.yml')
-            with open('scrapinghub.yml', 'r') as f:
+            with open('scrapinghub.yml') as f:
                 new_yml = yaml.safe_load(f)
             # Should not contain 'project' singleton
             self.assertEqual(
@@ -459,12 +457,12 @@ class ShubConfigTest(unittest.TestCase):
             del conf.projects['prod']
             del conf.stacks['default']
             conf.save('conf.yml', options=['projects'])
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(
                     yaml.load(f, Loader=Loader),
                     {'project': 12345, 'stack': 'custom-stack'})
             conf.save('conf.yml')
-            with open('conf.yml', 'r') as f:
+            with open('conf.yml') as f:
                 self.assertEqual(yaml.load(f, Loader=Loader), {'project': 12345})
 
     def test_normalized_projects(self):
@@ -586,7 +584,7 @@ class ShubConfigTest(unittest.TestCase):
             image: true
             stack: scrapy:1.3
         """)
-        with self.assertRaisesRegexp(BadConfigException, '(?i)ambiguous'):
+        with self.assertRaisesRegex(BadConfigException, '(?i)ambiguous'):
             self.conf.get_image('default')
 
     def test_get_image_ambiguous_global_image_and_project_stack(self):
@@ -601,9 +599,9 @@ class ShubConfigTest(unittest.TestCase):
                 stack: scrapy:1.3
             image: true
             """)
-        with self.assertRaisesRegexp(BadConfigException, '(?i)ambiguous'):
+        with self.assertRaisesRegex(BadConfigException, '(?i)ambiguous'):
             self.conf.get_image('bad')
-        with self.assertRaisesRegexp(BadConfigException, '(?i)disabled'):
+        with self.assertRaisesRegex(BadConfigException, '(?i)disabled'):
             self.conf.get_image('good')
 
     def test_get_image_ambiguous_project_image_and_project_stack(self):
@@ -614,7 +612,7 @@ class ShubConfigTest(unittest.TestCase):
                 image: true
                 stack: scrapy:1.3
             """)
-        with self.assertRaisesRegexp(BadConfigException, '(?i)ambiguous'):
+        with self.assertRaisesRegex(BadConfigException, '(?i)ambiguous'):
             self.conf.get_image('default')
 
     def test_get_target_conf(self):
@@ -860,7 +858,7 @@ class LoadShubConfigTest(unittest.TestCase):
         os.remove(self.netrcpath)
         load_shub_config()
         self.assertTrue(os.path.isfile(self.globalpath))
-        with open(self.globalpath, 'r') as f:
+        with open(self.globalpath) as f:
             self.assertEqual(f.read(), "")
 
     def test_automigrate_to_global_scrapinghub_yml(self):

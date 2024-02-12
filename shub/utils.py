@@ -1,4 +1,3 @@
-from __future__ import absolute_import
 import setuptools  # noqa: F401
 import contextlib
 import datetime
@@ -11,14 +10,13 @@ import re
 import time
 
 from collections import deque
-from six.moves.configparser import SafeConfigParser
-from distutils.spawn import find_executable
-from distutils.version import LooseVersion, StrictVersion
+from configparser import ConfigParser
+from shutil import which
+from packaging.version import Version
 from glob import glob
 from importlib import import_module
 from tempfile import NamedTemporaryFile, TemporaryFile
-from six.moves.urllib.parse import urljoin
-from six import string_types
+from urllib.parse import urljoin
 
 import click
 import pip
@@ -96,7 +94,7 @@ def create_default_setup_py(**kwargs):
                 kwargs['settings'] = get_config().get('settings', 'default')
             with open('setup.py', 'w') as f:
                 f.write(_SETUP_PY_TEMPLATE % kwargs)
-            click.echo("Created setup.py at {}".format(os.getcwd()))
+            click.echo(f"Created setup.py at {os.getcwd()}")
 
 
 def make_deploy_request(url, data, files, auth, verbose, keep_log):
@@ -121,10 +119,10 @@ def make_deploy_request(url, data, files, auth, verbose, keep_log):
                          '\n---------- END OF REMOTE TRACEBACK ----------')
         except (ValueError, TypeError, KeyError):
             error = rsp.text or "Status %d" % rsp.status_code
-        msg = "Deploy failed ({}):\n{}".format(rsp.status_code, error)
+        msg = f"Deploy failed ({rsp.status_code}):\n{error}"
         raise RemoteErrorException(msg)
     except requests.RequestException as exc:
-        raise RemoteErrorException("Deploy failed: {}".format(exc))
+        raise RemoteErrorException(f"Deploy failed: {exc}")
 
 
 def _check_deploy_files_size(files):
@@ -133,7 +131,7 @@ def _check_deploy_files_size(files):
     if not isinstance(files, list) or ctx and ctx.params.get('ignore_size'):
         return
     files_size = sum(
-        len(fp) if isinstance(fp, string_types)
+        len(fp) if isinstance(fp, str)
         else os.fstat(fp.fileno()).st_size
         for (fname, fp) in files
     )
@@ -143,32 +141,35 @@ def _check_deploy_files_size(files):
 
 def write_and_echo_logs(keep_log, last_logs, rsp, verbose):
     """It will write logs to temporal file and echo if verbose is True."""
-    with NamedTemporaryFile(prefix='shub_deploy_', suffix='.log',
-                            delete=(not keep_log)) as log_file:
-        for line in rsp.iter_lines():
-            if verbose:
-                click.echo(line)
-            last_logs.append(line)
-            log_file.write(line + b'\n')
+    log_contents = b""
+    for line in rsp.iter_lines():
+        if verbose:
+            click.echo(line)
+        last_logs.append(line)
+        log_contents += line + b'\n'
+    deployed = _is_deploy_successful(last_logs)
+    if not deployed:
+        keep_log = True
+    echo_short_log_if_deployed(deployed, last_logs, verbose=verbose)
 
-        deployed = _is_deploy_successful(last_logs)
-        echo_short_log_if_deployed(deployed, last_logs, log_file, verbose)
-        if not log_file.delete:
+    with NamedTemporaryFile(prefix='shub_deploy_', suffix='.log',
+                            delete=not keep_log) as log_file:
+        log_file.write(log_contents)
+        if keep_log:
             click.echo("Deploy log location: %s" % log_file.name)
         if not deployed:
             try:
                 last_log = last_logs[-1]
             except IndexError:
                 last_log = "(No log messages)"
-            raise RemoteErrorException("Deploy failed: {}".format(last_log))
+            raise RemoteErrorException(f"Deploy failed: {last_log}")
 
 
-def echo_short_log_if_deployed(deployed, last_logs, log_file, verbose):
+def echo_short_log_if_deployed(deployed, last_logs, log_file=None, verbose=False):
     if deployed:
         if not verbose:
             click.echo(last_logs[-1])
     else:
-        log_file.delete = False
         if not verbose:
             click.echo("Deploy log last %s lines:" % len(last_logs))
             for line in last_logs:
@@ -212,9 +213,9 @@ def patch_sys_executable():
 
 
 def find_exe(exe_name):
-    exe = find_executable(exe_name)
+    exe = which(exe_name)
     if not exe:
-        raise NotFoundException("Please install {}".format(exe_name))
+        raise NotFoundException(f"Please install {exe_name}")
     return exe
 
 
@@ -275,7 +276,7 @@ def pwd_version():
 
 
 def pwd_git_version():
-    git = find_executable('git')
+    git = which('git')
     if not git:
         return None
     try:
@@ -286,11 +287,11 @@ def pwd_git_version():
         except SubcommandException:
             return None
     branch = run_cmd([git, 'rev-parse', '--abbrev-ref', 'HEAD'])
-    return '%s-%s' % (commit_id, branch)
+    return f'{commit_id}-{branch}'
 
 
 def pwd_hg_version():
-    hg = find_executable('hg')
+    hg = which('hg')
     if not hg:
         return None
     try:
@@ -298,11 +299,11 @@ def pwd_hg_version():
     except SubcommandException:
         return None
     branch = run_cmd([hg, 'branch'])
-    return 'r%s-%s' % (commit_id, branch)
+    return f'r{commit_id}-{branch}'
 
 
 def pwd_bzr_version():
-    bzr = find_executable('bzr')
+    bzr = which('bzr')
     if not bzr:
         return None
     try:
@@ -391,7 +392,7 @@ def _deploy_dependency_egg(project, endpoint, apikey, name=None, version=None, e
     data = {'project': project, 'name': name, 'version': version}
     auth = (apikey, '')
 
-    click.echo('Deploying dependency {} {} to Scrapy Cloud project {}'.format(name, version, project))
+    click.echo(f'Deploying dependency {name} {version} to Scrapy Cloud project {project}')
 
     with open(egg_path, 'rb') as egg_fp:
         files = {'egg': (egg_name, egg_fp)}
@@ -444,7 +445,7 @@ def get_job_specs(job):
     # XXX: Lazy import due to circular dependency
     from shub.config import get_target_conf
     targetconf = get_target_conf(match.group(2) or 'default')
-    return ("{}/{}".format(targetconf.project_id, match.group(3)),
+    return (f"{targetconf.project_id}/{match.group(3)}",
             targetconf.apikey)
 
 
@@ -453,7 +454,7 @@ def get_job(job):
     hsc = HubstorageClient(auth=apikey)
     job = hsc.get_job(jobid)
     if not job.metadata:
-        raise NotFoundException('Job {} does not exist'.format(jobid))
+        raise NotFoundException(f'Job {jobid} does not exist')
     return job
 
 
@@ -485,9 +486,9 @@ def inside_project():
 
 
 def get_config(use_closest=True):
-    """Get Scrapy config file as a SafeConfigParser"""
+    """Get Scrapy config file as a ConfigParser"""
     sources = get_sources(use_closest)
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.read(sources)
     return cfg
 
@@ -506,7 +507,7 @@ def get_sources(use_closest=True):
 
 
 def get_scrapycfg_targets(cfgfiles=None):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.read(cfgfiles or [])
     baset = dict(cfg.items('deploy')) if cfg.has_section('deploy') else {}
     targets = {}
@@ -562,7 +563,7 @@ def job_resource_iter(job, resource, output_json=False, follow=True,
         # This is the last entry to be skipped, i.e. it will NOT be displayed
         last_item = total_nr_items - tail - 1
         if last_item >= 0:
-            last_item_key = '{}/{}'.format(job.key, last_item)
+            last_item_key = f'{job.key}/{last_item}'
     if not job_live(job):
         follow = False
     resource_iter = resource.iter_json if output_json else resource.iter_values
@@ -593,7 +594,7 @@ def latest_github_release(force_update=False, timeout=1., cache=None):
                                   'last_release.txt')
     today = datetime.date.today().toordinal()
     if not force_update and os.path.isfile(cache):
-        with open(cache, 'r') as f:
+        with open(cache) as f:
             try:
                 release_data = json.load(f)
             except Exception:
@@ -627,8 +628,8 @@ def update_available(silent_fail=True):
     """
     try:
         release_data = latest_github_release()
-        latest_rls = StrictVersion(release_data['name'].lstrip('v'))
-        used_rls = StrictVersion(shub.__version__)
+        latest_rls = Version(release_data['name'].lstrip('v'))
+        used_rls = Version(shub.__version__)
         if used_rls >= latest_rls:
             return None
         return release_data['html_url']
@@ -643,15 +644,15 @@ def download_from_pypi(dest, pkg=None, reqfile=None, extra_args=None):
     if (not pkg and not reqfile) or (pkg and reqfile):
         raise ValueError('Call with either pkg or reqfile')
     extra_args = extra_args or []
-    pip_version = LooseVersion(getattr(pip, '__version__', '1.0'))
+    pip_version = Version(getattr(pip, '__version__', '1.0'))
     cmd = 'install'
     no_wheel = []
     target = [pkg] if pkg else ['-r', reqfile]
-    if pip_version >= LooseVersion('1.4'):
+    if pip_version >= Version('1.4'):
         no_wheel = ['--no-use-wheel']
-    if pip_version >= LooseVersion('7'):
+    if pip_version >= Version('7'):
         no_wheel = ['--no-binary=:all:']
-    if pip_version >= LooseVersion('8'):
+    if pip_version >= Version('8'):
         cmd = 'download'
     with patch_sys_executable():
         pip_main([cmd, '-d', dest, '--no-deps'] + no_wheel + extra_args +
@@ -671,9 +672,9 @@ def update_yaml_dict(conf_path=None):
         from shub.config import GLOBAL_SCRAPINGHUB_YML_PATH
         conf_path = GLOBAL_SCRAPINGHUB_YML_PATH
     try:
-        with open(conf_path, 'r') as f:
+        with open(conf_path) as f:
             conf = yaml.safe_load(f) or {}
-    except IOError as e:
+    except OSError as e:
         if e.errno != errno.ENOENT:
             raise
         conf = {}

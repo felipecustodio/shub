@@ -34,6 +34,12 @@ jobs:
         - python-version: '3.10'
           os: ubuntu-latest
           tox-env: py
+        - python-version: '3.11'
+          os: ubuntu-latest
+          tox-env: py
+        - python-version: '3.12'
+          os: ubuntu-latest
+          tox-env: py
 
     steps:
     - uses: actions/checkout@v2
@@ -48,6 +54,14 @@ jobs:
 
     - name: Run tests
       run: tox -e ${{ matrix.tox-env }}
+
+    - name: Run off-tox tests
+      # https://github.com/scrapinghub/shub/issues/441
+      run: |
+        python -m venv venv
+        . venv/bin/activate
+        pip install .
+        python -c "from shub.image.utils import get_docker_client; get_docker_client(validate=False)"
 
     - name: Upload coverage report
       run: |
@@ -73,6 +87,10 @@ jobs:
         - python-version: '3.9'
           tox-env: py
         - python-version: '3.10'
+          tox-env: py
+        - python-version: '3.11'
+          tox-env: py
+        - python-version: '3.12'
           tox-env: py
 
     steps:
@@ -107,6 +125,10 @@ jobs:
         - python-version: '3.9'
           tox-env: py
         - python-version: '3.10'
+          tox-env: py
+        - python-version: '3.11'
+          tox-env: py
+        - python-version: '3.12'
           tox-env: py
 
     steps:

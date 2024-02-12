@@ -21,7 +21,6 @@ should be rewritten in the future with something more basic and
 lightweight, to get rid of dependence on Python.
 """
 
-from __future__ import print_function
 
 import os
 import sys
@@ -29,7 +28,7 @@ import json
 import logging
 import datetime
 from multiprocessing import Process
-from distutils.spawn import find_executable
+from shutil import which
 
 
 def _consume_from_fifo(fifo_path):
@@ -68,7 +67,7 @@ def main():
     # non-daemon to allow it to finish reading from pipe before exit.
     Process(target=_consume_from_fifo, args=[fifo_path]).start()
     # replace current process with original start-crawl
-    os.execv(find_executable('start-crawl'), sys.argv)
+    os.execv(which('start-crawl'), sys.argv)
 
 
 if __name__ == '__main__':
